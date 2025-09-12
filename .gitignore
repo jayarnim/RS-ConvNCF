@@ -1,0 +1,4 @@
+_data/*
+_notebooks/*
+_checkpoints/*
+**/__pycache__/
