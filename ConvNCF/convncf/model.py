@@ -71,19 +71,19 @@ class Module(nn.Module):
         return pred_vector
 
     def outer_product(self, user_idx, item_idx):
-        user = self.embed_user(user_idx).unsqueeze(2)   # (B, D, 1)
-        item = self.embed_item(item_idx).unsqueeze(1)   # (B, 1, D)
+        user = self.user_embed(user_idx).unsqueeze(2)   # (B, D, 1)
+        item = self.item_embed(item_idx).unsqueeze(1)   # (B, 1, D)
         feature_map = torch.bmm(user, item)             # (B, D, D)
         feature_map = feature_map.unsqueeze(1)          # (B, 1, D, D)
         return feature_map
 
     def _init_layers(self):
-        self.embed_user = nn.Embedding(
+        self.user_embed = nn.Embedding(
             num_embeddings=self.n_users+1, 
             embedding_dim=self.n_factors,
             padding_idx=self.n_users,
         )
-        self.embed_item = nn.Embedding(
+        self.item_embed = nn.Embedding(
             num_embeddings=self.n_items+1, 
             embedding_dim=self.n_factors,
             padding_idx=self.n_items,
