@@ -67,23 +67,29 @@ class Module(nn.Module):
         return pred_vector
 
     def outer_product(self, user_idx, item_idx):
-        user = self.user_embed(user_idx).unsqueeze(2)   # (B, D, 1)
-        item = self.item_embed(item_idx).unsqueeze(1)   # (B, 1, D)
-        feature_map = torch.bmm(user, item)             # (B, D, D)
-        feature_map = feature_map.unsqueeze(1)          # (B, 1, D, D)
-        return feature_map
+        user_slice_exp = self.user_embed(user_idx).unsqueeze(2)     # (B, D, 1)
+        item_slice_exp = self.item_embed(item_idx).unsqueeze(1)     # (B, 1, D)
+        feature_map = torch.bmm(user_slice_exp, item_slice_exp)     # (B, D, D)
+        feature_map_exp = feature_map.unsqueeze(1)                  # (B, 1, D, D)
+        return feature_map_exp
 
     def _init_layers(self):
-        self.user_embed = nn.Embedding(
+        kwargs = dict(
             num_embeddings=self.n_users+1, 
             embedding_dim=self.n_factors,
             padding_idx=self.n_users,
         )
-        self.item_embed = nn.Embedding(
+        self.user_embed = nn.Embedding(**kwargs)
+
+        kwargs = dict(
             num_embeddings=self.n_items+1, 
             embedding_dim=self.n_factors,
             padding_idx=self.n_items,
         )
+        self.item_embed = nn.Embedding(**kwargs)
+
+        nn.init.normal_(self.user_embed.weight, mean=0.0, std=0.01)
+        nn.init.normal_(self.item_embed.weight, mean=0.0, std=0.01)
 
         self.conv_layers = nn.Sequential(
             *list(self._generate_layers(self.n_factors, self.channels)),
