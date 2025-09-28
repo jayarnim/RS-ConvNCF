@@ -9,8 +9,8 @@ class Module(nn.Module):
         n_users: int,
         n_items: int,
         n_factors: int=32,
-        channels: int=16,
         dropout: float=0.2,
+        channels: int=16,
     ):
         super().__init__()
         # attr dictionary for load
@@ -22,8 +22,8 @@ class Module(nn.Module):
         self.n_users = n_users
         self.n_items = n_items
         self.n_factors = n_factors
-        self.channels = channels
         self.dropout = dropout
+        self.channels = channels
 
         # debugging args error
         self._assert_arg_error()
