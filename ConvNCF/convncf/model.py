@@ -29,7 +29,7 @@ class Module(nn.Module):
         self._assert_arg_error()
 
         # generate layers
-        self._init_layers()
+        self._set_up_components()
 
     def forward(
         self, 
@@ -67,13 +67,21 @@ class Module(nn.Module):
         return pred_vector
 
     def outer_product(self, user_idx, item_idx):
-        user_slice_exp = self.user_embed(user_idx).unsqueeze(2)     # (B, D, 1)
-        item_slice_exp = self.item_embed(item_idx).unsqueeze(1)     # (B, 1, D)
-        feature_map = torch.bmm(user_slice_exp, item_slice_exp)     # (B, D, D)
-        feature_map_exp = feature_map.unsqueeze(1)                  # (B, 1, D, D)
+        # (B, D, 1)
+        user_embed_slice_exp = self.user_embed(user_idx).unsqueeze(2)
+        # (B, 1, D)
+        item_embed_slice_exp = self.item_embed(item_idx).unsqueeze(1)
+        # (B, D, D)
+        feature_map = torch.bmm(user_embed_slice_exp, item_embed_slice_exp)
+        # (B, 1, D, D)
+        feature_map_exp = feature_map.unsqueeze(1)
         return feature_map_exp
 
-    def _init_layers(self):
+    def _set_up_components(self):
+        self._create_embeddings()
+        self._create_layers()
+
+    def _create_embeddings(self):
         kwargs = dict(
             num_embeddings=self.n_users+1, 
             embedding_dim=self.n_factors,
@@ -88,45 +96,35 @@ class Module(nn.Module):
         )
         self.item_embed = nn.Embedding(**kwargs)
 
-        nn.init.normal_(self.user_embed.weight, mean=0.0, std=0.01)
-        nn.init.normal_(self.item_embed.weight, mean=0.0, std=0.01)
+    def _create_layers(self):
+        components = list(self._yield_layers(self.n_factors, self.channels))
+        self.conv_layers = nn.Sequential(*components)
 
-        self.conv_layers = nn.Sequential(
-            *list(self._generate_layers(self.n_factors, self.channels)),
-            nn.Flatten(),
-            nn.Dropout(self.dropout),
-        )
-
-        self.logit_layer = nn.Linear(
+        kwargs = dict(
             in_features=self.channels,
             out_features=1,
         )
+        self.logit_layer = nn.Linear(**kwargs)
 
-    def _generate_layers(self, n_factors, channels):
+    def _yield_layers(self, n_factors, out_channels):
         hidden = n_factors
         idx = 0
 
         while hidden > 1:
-            if idx==0:
-                yield nn.Conv2d(
-                    in_channels=1, 
-                    out_channels=channels, 
-                    kernel_size=2, 
-                    stride=2,
-                )
-
-            else:
-                yield nn.Conv2d(
-                    in_channels=channels, 
-                    out_channels=channels, 
-                    kernel_size=2, 
-                    stride=2,
-                )
-
+            kwargs = dict(
+                in_channels = 1 if idx==0 else out_channels,
+                out_channels=out_channels, 
+                kernel_size=2, 
+                stride=2,
+            )
+            yield nn.Conv2d(**kwargs)
             yield nn.ReLU()
 
             hidden //= 2
             idx += 1
+
+        yield nn.Flatten()
+        yield nn.Dropout(self.dropout)
 
     def _assert_arg_error(self):
         CONDITION = (self.n_factors & (self.n_factors - 1) == 0)
