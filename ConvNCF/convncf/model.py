@@ -13,6 +13,7 @@ class Module(nn.Module):
         channels: int=16,
     ):
         super().__init__()
+
         # attr dictionary for load
         self.init_args = locals().copy()
         del self.init_args["self"]
