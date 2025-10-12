@@ -12,6 +12,24 @@ class Module(nn.Module):
         dropout: float=0.2,
         channels: int=16,
     ):
+        """
+        Outer product-based neural collaborative filtering (He et al., 2018)
+        -----
+        Implements the base structure of Convolutional Neural Collaborative Filtering (ConvNCF),
+        CNN & id embedding based latent factor model.
+
+        Args:
+            n_users (int): 
+                total number of users in the dataset, U.
+            n_items (int): 
+                total number of items in the dataset, I.
+            n_factors (int): 
+                dimensionality of user and item latent representation vectors, K.
+            dropout (float): 
+                dropout rate applied to MLP layers for regularization.
+            channels (int): 
+                number of convolutional feature maps (output channels) used in the CNN layers.
+        """
         super().__init__()
 
         # attr dictionary for load
@@ -38,33 +56,45 @@ class Module(nn.Module):
         item_idx: torch.Tensor,
     ):
         """
-        user_idx: (B,)
-        item_idx: (B,)
+        Training Method
+
+        Args:
+            user_idx (torch.Tensor): target user idx (shape: [B,])
+            item_idx (torch.Tensor): target item idx (shape: [B,])
+        
+        Returns:
+            logit (torch.Tensor): (u,i) pair interaction logit (shape: [B,])
         """
         return self.score(user_idx, item_idx)
 
+    @torch.no_grad()
     def predict(
         self, 
         user_idx: torch.Tensor, 
         item_idx: torch.Tensor,
     ):
         """
-        user_idx: (B,)
-        item_idx: (B,)
+        Evaluation Method
+
+        Args:
+            user_idx (torch.Tensor): target user idx (shape: [B,])
+            item_idx (torch.Tensor): target item idx (shape: [B,])
+
+        Returns:
+            prob (torch.Tensor): (u,i) pair interaction probability (shape: [B,])
         """
-        with torch.no_grad():
-            logit = self.score(user_idx, item_idx)
-            pred = torch.sigmoid(logit)
-        return pred
+        logit = self.score(user_idx, item_idx)
+        prob = torch.sigmoid(logit)
+        return prob
 
     def score(self, user_idx, item_idx):
         pred_vector = self.conv(user_idx, item_idx)
-        logit = self.logit_layer(pred_vector).squeeze(-1)
+        logit = self.pred_layer(pred_vector).squeeze(-1)
         return logit
 
     def conv(self, user_idx, item_idx):
         feature_map = self.outer_product(user_idx, item_idx)
-        pred_vector = self.conv_layers(feature_map)
+        pred_vector = self.matching_fn(feature_map)
         return pred_vector
 
     def outer_product(self, user_idx, item_idx):
@@ -80,6 +110,7 @@ class Module(nn.Module):
 
     def _set_up_components(self):
         self._create_embeddings()
+        self._init_embeddings()
         self._create_layers()
 
     def _create_embeddings(self):
@@ -97,15 +128,19 @@ class Module(nn.Module):
         )
         self.item_embed = nn.Embedding(**kwargs)
 
+    def _init_embeddings(self):
+        nn.init.normal_(self.user_embed.weight, mean=0.0, std=0.01)
+        nn.init.normal_(self.item_embed.weight, mean=0.0, std=0.01)
+
     def _create_layers(self):
         components = list(self._yield_layers(self.n_factors, self.channels))
-        self.conv_layers = nn.Sequential(*components)
+        self.matching_fn = nn.Sequential(*components)
 
         kwargs = dict(
             in_features=self.channels,
             out_features=1,
         )
-        self.logit_layer = nn.Linear(**kwargs)
+        self.pred_layer = nn.Linear(**kwargs)
 
     def _yield_layers(self, n_factors, out_channels):
         hidden = n_factors
