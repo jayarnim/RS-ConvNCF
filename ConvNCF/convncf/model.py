@@ -148,13 +148,15 @@ class Module(nn.Module):
 
         while hidden > 1:
             kwargs = dict(
-                in_channels = 1 if idx==0 else out_channels,
+                in_channels=1 if idx==0 else out_channels,
                 out_channels=out_channels, 
                 kernel_size=2, 
                 stride=2,
             )
             yield nn.Conv2d(**kwargs)
+            yield nn.BatchNorm2d(out_channels)
             yield nn.ReLU()
+            yield nn.Dropout2d(self.dropout)
 
             hidden //= 2
             idx += 1
