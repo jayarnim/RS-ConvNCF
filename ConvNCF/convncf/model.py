@@ -163,7 +163,6 @@ class Module(nn.Module):
             idx += 1
 
         yield nn.Flatten()
-        yield nn.Dropout(self.dropout)
 
     def _assert_arg_error(self):
         CONDITION = (self.n_factors & (self.n_factors - 1) == 0)
