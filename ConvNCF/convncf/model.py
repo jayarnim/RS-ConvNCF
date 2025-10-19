@@ -133,7 +133,7 @@ class Module(nn.Module):
         nn.init.normal_(self.item_embed.weight, mean=0.0, std=0.01)
 
     def _create_layers(self):
-        components = list(self._yield_layers(self.n_factors, self.channels))
+        components = list(self._yield_conv_block(self.n_factors, self.channels))
         self.matching_fn = nn.Sequential(*components)
 
         kwargs = dict(
@@ -142,10 +142,10 @@ class Module(nn.Module):
         )
         self.pred_layer = nn.Linear(**kwargs)
 
-    def _yield_layers(self, n_factors, out_channels):
+    def _yield_conv_block(self, n_factors, out_channels):
         hidden = n_factors
         idx = 0
-
+        
         while hidden > 1:
             kwargs = dict(
                 in_channels=1 if idx==0 else out_channels,
@@ -153,11 +153,12 @@ class Module(nn.Module):
                 kernel_size=2, 
                 stride=2,
             )
-            yield nn.Conv2d(**kwargs)
-            yield nn.BatchNorm2d(out_channels)
-            yield nn.ReLU()
-            yield nn.Dropout2d(self.dropout)
-
+            yield nn.Sequential(
+                nn.Conv2d(**kwargs),
+                nn.BatchNorm2d(out_channels),
+                nn.ReLU(),
+                nn.Dropout2d(self.dropout),
+            )
             hidden //= 2
             idx += 1
 
