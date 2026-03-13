@@ -1,0 +1,3 @@
+embedding_dim: 32
+channels: 16
+dropout: 0.2
